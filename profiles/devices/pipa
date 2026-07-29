@@ -4,7 +4,7 @@
 
 # --- Desktop: normal zypper install, no extraction tricks needed ---
 [zypper]
-patterns-kde-plasma
+patterns-kde-kde_plasma
 sddm
 NetworkManager
 dbus-1
