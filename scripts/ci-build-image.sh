@@ -32,6 +32,26 @@ ROOTFS_DIR="$OUT_DIR/rootfs-build"
 rm -rf "$ROOTFS_DIR"
 mkdir -p "$ROOTFS_DIR"
 
+# zypper --root relocates the repo/cache/solv directories under $ROOTFS_DIR,
+# but it does NOT read zypp.conf from inside the target root -- libzypp still
+# autodetects the *build host's* CPU architecture (uname -m) for the solver.
+# On the amd64 CI container that's x86_64, so every package in the aarch64
+# ports repo gets filtered out as "incompatible", which is exactly the
+# "No provider of 'coreutils' found" (and glibc/systemd/bash/...) failure:
+# the solver isn't missing the packages, it's refusing all of them on arch
+# grounds. ZYPP_CONF points libzypp at a conf file that overrides the
+# detected system architecture to the actual target, aarch64. This has been
+# verified against real zypper/libzypp: without it, zypper logs
+# "SystemArchitecture: 'x86_64_v4'" even with --root pointed at an aarch64
+# tree; with it, it logs "Overriding system architecture ... aarch64".
+echo "==> Forcing libzypp target architecture to ${TW_ARCH} (build host is $(uname -m))"
+ZYPP_CONF_OVERRIDE="$OUT_DIR/zypp-${TW_ARCH}.conf"
+cat >"$ZYPP_CONF_OVERRIDE" <<EOF
+[main]
+arch = ${TW_ARCH}
+EOF
+export ZYPP_CONF="$ZYPP_CONF_OVERRIDE"
+
 echo "==> Registering Tumbleweed repos into the target root"
 zypper --root "$ROOTFS_DIR" ar -f "$TW_REPO_OSS" repo-oss
 zypper --root "$ROOTFS_DIR" ar -f "$TW_REPO_NONOSS" repo-non-oss
