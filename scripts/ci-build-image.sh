@@ -66,11 +66,11 @@ zypper --root "$ROOTFS_DIR" --non-interactive install -y \
     grub2-arm64-efi shim dracut
 
 if [[ "$IMAGE_MODE" == "full" ]]; then
-    echo "==> Installing Plasma desktop (patterns-kde-plasma) from real Tumbleweed repos"
+    echo "==> Installing Plasma desktop (patterns-kde-kde_plasma) from real Tumbleweed repos"
     # This is the whole point of doing openSUSE this way: no manual RPM
     # extraction for the desktop, zypper resolves everything normally.
     zypper --root "$ROOTFS_DIR" --non-interactive install -y \
-        patterns-kde-plasma sddm plymouth
+        patterns-kde-kde_plasma sddm plymouth
 else
     echo "==> IMAGE_MODE=bringup — skipping Plasma, console-only rootfs for hardware bring-up"
 fi
