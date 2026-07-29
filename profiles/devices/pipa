@@ -1,0 +1,70 @@
+## Xiaomi Pad 6 (pipa) — hardware from pipa-pkgs, desktop from real Tumbleweed repos ##
+## Hardware packages: https://thespider2.github.io/pipa-pkgs/repo/ (Arch pkg.tar, raw-extracted)
+## Desktop packages: installed via zypper --installroot from Tumbleweed proper (NOT extracted)
+
+# --- Desktop: normal zypper install, no extraction tricks needed ---
+[zypper]
+patterns-kde-plasma
+sddm
+NetworkManager
+dbus-1
+dbus-1-daemon
+plymouth
+grub2-arm64-efi
+shim
+dracut
+
+# --- Hardware: pipa-pkgs, raw pacman-tarball extraction (see inject-pipa-pkgs.sh) ---
+[pipa-pkgs]
+linux-pipa
+pipa-dracut
+pipa-grub-config
+pipa-kernel-flasher-hook
+pipa-metapkg
+qbootctl
+
+xiaomi-pipa-firmware
+linux-firmware
+wireless-regdb
+
+qrtr
+rmtfs
+tqftpserv
+pd-mapper
+hexagonrpc
+libssc
+bootmac
+swclock-offset
+ath10k-shutdown
+make-dynpart-mappings
+msm-modem-uim-selection
+q6voiced
+qca-swiss-army-knife
+usb-network
+
+alsa-ucm-conf-sm8250
+pipa-sound-conf
+pulseaudio
+pulseaudio-utils
+pulseaudio-bluetooth
+
+pipa-sensors
+iio-sensor-proxy
+libcamera
+
+bluez
+bluez-git
+
+mesa
+
+wpa_supplicant
+iwd
+connman-client
+
+# --- Runtime libs pipa-pkgs' Arch binaries need, present under different
+#     names/paths on openSUSE — install from Tumbleweed proper ---
+[zypper]
+libqmi-glib5
+libqrtr-glib0
+libprotobuf-c1
+libmbim-glib4

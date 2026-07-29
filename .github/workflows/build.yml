@@ -1,0 +1,57 @@
+name: Build openSUSE Plasma pipa image
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "profiles/**"
+      - "efi-template/**"
+      - "assets/**"
+      - "Dockerfile"
+      - ".github/workflows/build.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate recipe (cheap check before burning build minutes)
+        run: bash scripts/validate-recipe.sh
+
+      # The build container runs zypper --installroot for an aarch64 target,
+      # then chroots into that aarch64 rootfs to run dracut. The container
+      # itself can stay host-arch (amd64) — this registers qemu-aarch64
+      # with the kernel's binfmt_misc so that chroot'd aarch64 binaries
+      # (dracut, ldconfig, etc.) execute transparently.
+      - name: Set up QEMU (aarch64 chroot support)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Build the CI container
+        run: docker build -t opensuse-plasma-pipa .
+
+      # --privileged is required for loop mounts (mkfs.ext4/mkfs.fat,
+      # mount -o loop) inside post-process-pipa.sh — a sandboxed runner
+      # without it will fail at the "Creating boot.raw" step.
+      - name: Run build (produces flashables)
+        run: |
+          mkdir -p "${{ github.workspace }}/out"
+          docker run --rm --privileged \
+            -v "${{ github.workspace }}/out:/out" \
+            opensuse-plasma-pipa
+
+      - name: Upload flashables
+        uses: actions/upload-artifact@v4
+        with:
+          name: opensuse-plasma-pipa-${{ github.run_number }}
+          path: |
+            out/*.xz
+            out/*.sh
+            out/BUILDINFO.txt
+            out/SHA256SUMS
+          if-no-files-found: error
