@@ -20,7 +20,7 @@ grep -q 'rmtfs' "$ROOT/profiles/devices/pipa"
 grep -q 'hexagonrpc' "$ROOT/profiles/devices/pipa"
 grep -q 'libssc' "$ROOT/profiles/devices/pipa"
 grep -q 'qrtr' "$ROOT/profiles/devices/pipa"
-grep -q 'patterns-kde-plasma' "$ROOT/profiles/devices/pipa"
+grep -q 'patterns-kde-kde_plasma' "$ROOT/profiles/devices/pipa"
 grep -q 'sddm' "$ROOT/profiles/devices/pipa"
 
 echo "OK: pipa openSUSE Plasma recipe present"
