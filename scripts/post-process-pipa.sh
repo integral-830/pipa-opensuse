@@ -57,9 +57,14 @@ find_kernel_ver() {
   local d base
   KERNEL_VER=""
   MODULES_DIR=""
+  ALL_KERNEL_BASENAMES=()
   shopt -s nullglob
   local candidates=("$ROOTFS_DIR"/usr/lib/modules/*/ "$ROOTFS_DIR"/lib/modules/*/)
   shopt -u nullglob
+  for d in "${candidates[@]}"; do
+    base="${d%/}"; base="${base##*/}"
+    ALL_KERNEL_BASENAMES+=("$base")
+  done
   for d in "${candidates[@]}"; do
     base="${d%/}"; base="${base##*/}"
     case "$base" in
@@ -96,10 +101,10 @@ fi
 # usr/lib/modules/$KERNEL_VER is referenced throughout the rest of this
 # script — keep it correct if we fell back to the legacy lib/modules path.
 ROOTFS_MODULES_PREFIX="${MODULES_DIR#"$ROOTFS_DIR"/}"
-for d in "${_mod_dirs[@]}"; do
+for d in "${ALL_KERNEL_BASENAMES[@]}"; do
   if [ "$d" != "$KERNEL_VER" ]; then
     echo "Removing unused stock kernel modules: $d"
-    rm -rf "$ROOTFS_DIR/usr/lib/modules/$d"
+    rm -rf "$ROOTFS_DIR/usr/lib/modules/$d" "$ROOTFS_DIR/lib/modules/$d"
   fi
 done
 echo "Kernel version: $KERNEL_VER"
@@ -213,10 +218,19 @@ done
 umount "$BOOT_MNT"
 
 echo "=== Creating esp.raw ==="
-# 4096-byte sectors (UFS) — Mu-Silicium/pocketblue needs this or it gets
-# stuck in MsTemp without ever loading BOOTAA64.
+# Plain default (512-byte sector) FAT16 — same as the known-working
+# endeavouros-pipa / ultramarine-pipa builds for this exact device. An
+# earlier version of this script forced -S 4096 -s 4 (4096-byte sectors)
+# here on a theory that Mu-Silicium/pocketblue's ABL needed it; that
+# theory doesn't hold up: the sibling builds boot fine on the same
+# hardware without it, and forcing a BPB bytes-per-sector value that
+# doesn't match how the block device is actually addressed is a textbook
+# way to make a UEFI FAT driver fail to mount the volume at all — which
+# presents as exactly the "only fastboot, no boot" symptom (the ABL can't
+# find/load BOOTAA64.EFI, so it falls back to fastboot instead of
+# chainloading shim/grub).
 truncate -s 128M "$OUTPUT_DIR/plasma_esp.raw"
-mkfs.fat -F 16 -S 4096 -s 4 -n "$ESP_LABEL" "$OUTPUT_DIR/plasma_esp.raw"
+mkfs.fat -F 16 -n "$ESP_LABEL" "$OUTPUT_DIR/plasma_esp.raw"
 mount -o loop "$OUTPUT_DIR/plasma_esp.raw" "$ESP_MNT"
 mkdir -p "$ESP_MNT/EFI/BOOT" "$ESP_MNT/EFI/opensuse"
 
