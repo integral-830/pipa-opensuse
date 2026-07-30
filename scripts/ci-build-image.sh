@@ -80,6 +80,24 @@ zypper --root "$ROOTFS_DIR" --non-interactive install -y \
     --no-recommends \
     libqmi-glib5 libqrtr-glib0 libprotobuf-c1 libmbim-glib4
 
+# pipa-pkgs (the Arch-style device repo) only carries pipa/Qualcomm-hardware
+# packages — it 404s on generic userspace + firmware, which is real
+# openSUSE Tumbleweed territory anyway. Install those from the repos
+# already registered above instead. Names verified against actual
+# Tumbleweed packaging (not the Arch/generic names the old pipa-pkgs list
+# used to request): Mesa is capitalized and split into subpackages,
+# pulseaudio's bluetooth module is "pulseaudio-module-bluetooth" not
+# "pulseaudio-bluetooth", and firmware is split into kernel-firmware-*
+# rather than one "linux-firmware" blob.
+echo "==> Generic userspace + firmware (real Tumbleweed repos, not pipa-pkgs)"
+zypper --root "$ROOTFS_DIR" --non-interactive install -y \
+    --no-recommends \
+    pulseaudio pulseaudio-utils pulseaudio-module-bluetooth \
+    wireless-regdb kernel-firmware-qcom kernel-firmware-bluetooth \
+    Mesa-dri Mesa-libGL1 Mesa-libEGL1 \
+    wpa_supplicant iwd connman \
+    || echo "WARNING: one or more generic packages failed to install — check package names above against 'zypper --root \"$ROOTFS_DIR\" se <name>'" >&2
+
 echo "==> Injecting pipa-pkgs (kernel + hardware) into the rootfs"
 ROOTFS_DIR="$ROOTFS_DIR" "$ROOT/scripts/inject-pipa-pkgs.sh"
 
