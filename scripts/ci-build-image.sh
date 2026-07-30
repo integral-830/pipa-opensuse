@@ -49,8 +49,20 @@ ZYPP_CONF_OVERRIDE="$OUT_DIR/zypp-${TW_ARCH}.conf"
 cat >"$ZYPP_CONF_OVERRIDE" <<EOF
 [main]
 arch = ${TW_ARCH}
+# Max parallel downloads. download.opensuse.org is already a MirrorBrain
+# redirector that auto-picks a fast/near mirror per request (there's no
+# separate "fastest mirror" toggle to set the way dnf/pacman have one) --
+# this just lets zypper actually use several connections at once instead
+# of fetching one package at a time.
+download.max_concurrent_connections = 10
+download.min_download_speed = 0
 EOF
 export ZYPP_CONF="$ZYPP_CONF_OVERRIDE"
+# Parallel package downloads (fetch multiple different packages from the
+# transaction at once, not just multi-connection on one file) is still an
+# experimental libzypp feature gated behind this env var; the concurrency
+# count is the same download.max_concurrent_connections set above.
+export ZYPP_PCK_PRELOAD=1
 
 echo "==> Registering Tumbleweed repos into the target root"
 zypper --root "$ROOTFS_DIR" ar -f "$TW_REPO_OSS" repo-oss
