@@ -62,7 +62,14 @@ export ZYPP_CONF="$ZYPP_CONF_OVERRIDE"
 # transaction at once, not just multi-connection on one file) is still an
 # experimental libzypp feature gated behind this env var; the concurrency
 # count is the same download.max_concurrent_connections set above.
+#
+# ZYPP_PCK_PRELOAD alone can still fetch sequentially on some libzypp
+# builds -- openSUSE's own benchmarks (news.opensuse.org, March 2025) only
+# show the full parallel speedup with ZYPP_CURL2=1 set *together* with
+# ZYPP_PCK_PRELOAD=1 (curl2 is the new, simplified media backend the
+# preloader was actually built against). Both are required, not either/or.
 export ZYPP_PCK_PRELOAD=1
+export ZYPP_CURL2=1
 
 echo "==> Registering Tumbleweed repos into the target root"
 zypper --root "$ROOTFS_DIR" ar -f "$TW_REPO_OSS" repo-oss
