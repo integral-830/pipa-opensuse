@@ -43,28 +43,41 @@ cleanup() {
 trap cleanup EXIT
 
 # --- Find the pipa kernel, drop any stock kernel that came along ---
-# NOTE: this has been observed to report empty on the FIRST check even
-# though the directory demonstrably exists (the diagnostic `ls` below has
-# printed its contents in the same failure) -- a read-after-write
-# visibility gap between the process that extracted linux-pipa and this
-# process's find/readdir, most likely against the /out bind mount under
-# Docker. `sync` + a few short retries is the standard mitigation for that
-# class of issue and is harmless if the directory really is empty.
+# NOTE: this used to use `find -mindepth 1 -maxdepth 1 -type d`, which has
+# been observed to report empty five times in a row (with `sync` + 1s
+# sleeps between attempts) against a directory that demonstrably exists --
+# the diagnostic `ls` below printed its contents in the same failure, in
+# the same run. That rules out a transient visibility race. What's
+# different is the *mechanism*: find's -type d relies on the d_type field
+# from readdir(), while a plain bash glob stat()s each path directly --
+# and inject-pipa-pkgs.sh's own verification, which uses exactly that glob
+# form, found this same kernel directory fine in this same run. So: use
+# the method already proven to work here instead of the one proven not to.
 find_kernel_ver() {
-  MODULES_DIR="$ROOTFS_DIR/usr/lib/modules"
-  [ -d "$MODULES_DIR" ] || MODULES_DIR="$ROOTFS_DIR/lib/modules"
-  mapfile -t _mod_dirs < <(find "$MODULES_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort -V || true)
+  local d base
   KERNEL_VER=""
-  for d in "${_mod_dirs[@]}"; do
-    case "$d" in *pipa*|*PIPA*) KERNEL_VER="$d"; return 0 ;; esac
+  MODULES_DIR=""
+  shopt -s nullglob
+  local candidates=("$ROOTFS_DIR"/usr/lib/modules/*/ "$ROOTFS_DIR"/lib/modules/*/)
+  shopt -u nullglob
+  for d in "${candidates[@]}"; do
+    base="${d%/}"; base="${base##*/}"
+    case "$base" in
+      *pipa*|*PIPA*) KERNEL_VER="$base"; MODULES_DIR="${d%/*/}"; return 0 ;;
+    esac
   done
-  for d in "${_mod_dirs[@]}"; do
-    case "$d" in *-default|*-vanilla) continue ;; *) KERNEL_VER="$d"; return 0 ;; esac
+  for d in "${candidates[@]}"; do
+    base="${d%/}"; base="${base##*/}"
+    case "$base" in
+      *-default|*-vanilla) continue ;;
+      *) KERNEL_VER="$base"; MODULES_DIR="${d%/*/}"; return 0 ;;
+    esac
   done
   return 1
 }
 
 KERNEL_VER=""
+MODULES_DIR="$ROOTFS_DIR/usr/lib/modules"
 for attempt in 1 2 3 4 5; do
   sync
   if find_kernel_ver; then
@@ -75,14 +88,9 @@ for attempt in 1 2 3 4 5; do
 done
 if [ -z "$KERNEL_VER" ]; then
   echo "ERROR: no kernel modules after pipa-pkgs inject" >&2
-  echo "       Checked: $MODULES_DIR (retried 5x over 5s)" >&2
-  ls -la "$ROOTFS_DIR/usr/lib/modules" 2>&1 >&2 || echo "       $ROOTFS_DIR/usr/lib/modules does not exist" >&2
-  ls -la "$ROOTFS_DIR/lib/modules" 2>&1 >&2 || echo "       $ROOTFS_DIR/lib/modules does not exist" >&2
-  echo "       inject-pipa-pkgs.sh verifies this right after extraction — if" >&2
-  echo "       it got this far AND the ls above shows a *pipa* directory," >&2
-  echo "       this is a filesystem visibility lag, not a missing kernel;" >&2
-  echo "       rerun, and if it recurs, mount /out with a real filesystem" >&2
-  echo "       (not an NFS/network bind mount) or raise the retry count above." >&2
+  echo "       Checked (glob): $ROOTFS_DIR/usr/lib/modules/*/ and $ROOTFS_DIR/lib/modules/*/ (retried 5x over 5s)" >&2
+  ls -la "$ROOTFS_DIR/usr/lib/modules" >&2 2>&1 || echo "       $ROOTFS_DIR/usr/lib/modules does not exist" >&2
+  ls -la "$ROOTFS_DIR/lib/modules" >&2 2>&1 || echo "       $ROOTFS_DIR/lib/modules does not exist" >&2
   exit 1
 fi
 # usr/lib/modules/$KERNEL_VER is referenced throughout the rest of this
